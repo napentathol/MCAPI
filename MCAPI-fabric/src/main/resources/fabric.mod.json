@@ -1,0 +1,33 @@
+{
+  "schemaVersion": 1,
+  "id": "mcapi",
+  "version": "${version}",
+
+  "name": "MC API Fabric",
+  "description": "This allows minecraft servers to generate API keys",
+  "authors": [
+    "nap"
+  ],
+  "contact": {
+    "homepage": "https://fabricmc.net/",
+    "sources": ""
+  },
+
+  "license": "MIT",
+  "icon": "assets/modid/icon.png",
+
+  "environment": "*",
+  "entrypoints": {
+    "main": []
+  },
+  "mixins": [
+    "mcapi.mixins.json"
+  ],
+
+  "depends": {
+    "fabricloader": ">=0.7.2",
+    "fabric": "*",
+    "minecraft": "1.15.x"
+  },
+  "suggests": {}
+}

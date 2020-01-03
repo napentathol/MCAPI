@@ -1,0 +1,5 @@
+MCProtocolLib/
+.idea
+.gradle/
+build/
+run/

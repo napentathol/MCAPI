@@ -1,0 +1,13 @@
+{
+  "required": true,
+  "package": "us.sodiumlabs.mcapi.fabric.mixin",
+  "compatibilityLevel": "JAVA_8",
+  "mixins": [
+  ],
+  "server": [
+    "LoginMixin"
+  ],
+  "injectors": {
+    "defaultRequire": 1
+  }
+}
