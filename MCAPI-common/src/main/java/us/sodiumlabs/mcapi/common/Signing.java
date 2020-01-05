@@ -46,7 +46,7 @@ public class Signing {
         } catch (final NoSuchAlgorithmException e) {
             throw new SigningException("Does not support SHA256 HMAC", e);
         } catch (final InvalidKeyException e) {
-            throw new SigningException("Invalid key!", e);
+            throw new SigningException("Invalid key", e);
         }
     }
 
@@ -55,7 +55,7 @@ public class Signing {
             final MessageDigest digest = MessageDigest.getInstance("SHA-256");
             return ByteBuffer.wrap(digest.digest(copy(toHash).array())).asReadOnlyBuffer();
         } catch (NoSuchAlgorithmException e) {
-            e.printStackTrace();
+            throw new HashingException("Unable to hash", e);
         }
     }
 
@@ -65,8 +65,16 @@ public class Signing {
         }
     }
 
+    public static class HashingException extends RuntimeException {
+        public HashingException(final String msg, final Exception cause) {
+            super(msg, cause);
+        }
+    }
+
     public final String toHex(final ByteBuffer bb) {
-        final ByteBuffer newBb = bb.asReadOnlyBuffer().rewind();
+        final ByteBuffer newBb = bb.asReadOnlyBuffer();
+        newBb.rewind();
+
         final StringBuilder hexString = new StringBuilder();
         while(newBb.hasRemaining()) {
             String hex = Integer.toHexString(0xff & newBb.get());
@@ -77,9 +85,12 @@ public class Signing {
     }
 
     public final ByteBuffer copy(final ByteBuffer bb) {
-        final ByteBuffer newBb = bb.asReadOnlyBuffer().rewind();
+        final ByteBuffer newBb = bb.asReadOnlyBuffer();
+        newBb.rewind();
+
         final ByteBuffer copy = ByteBuffer.allocate(newBb.capacity());
         copy.put(newBb);
-        return copy.rewind();
+        copy.rewind();
+        return copy;
     }
 }
