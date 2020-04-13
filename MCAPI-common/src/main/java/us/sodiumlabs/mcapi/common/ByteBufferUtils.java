@@ -1,6 +1,7 @@
 package us.sodiumlabs.mcapi.common;
 
 import java.nio.ByteBuffer;
+import java.util.Random;
 
 public final class ByteBufferUtils {
     private ByteBufferUtils() {}
@@ -52,5 +53,11 @@ public final class ByteBufferUtils {
             equal &= aCopy.get() == bCopy.get();
         }
         return equal;
+    }
+
+    public static ByteBuffer randomBytes(final Random random, final int i) {
+        final byte[] array = new byte[i];
+        random.nextBytes(array);
+        return ByteBuffer.wrap(array);
     }
 }

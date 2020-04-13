@@ -16,19 +16,28 @@ import org.spongepowered.asm.mixin.Shadow;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
+import us.sodiumlabs.mcapi.common.Signing;
+import us.sodiumlabs.mcapi.fabric.Initializer;
+import us.sodiumlabs.mcapi.fabric.service.CredInformation;
 
 import javax.crypto.SecretKey;
 import java.lang.reflect.Field;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
+import java.nio.ByteBuffer;
 import java.security.PrivateKey;
 import java.util.Objects;
+import java.util.Optional;
 
 import static java.util.Objects.requireNonNull;
 
 @Mixin(ServerLoginNetworkHandler.class)
 public class LoginMixin {
     private static final Logger LOGGER = LogManager.getLogger();
+
+    private Optional<CredInformation> credInformation = Optional.empty();
+
+    private boolean automated = false;
 
     @Shadow
     private GameProfile profile;
@@ -53,6 +62,8 @@ public class LoginMixin {
     private final static Object KEY;
     private final static Object AUTHENTICATING;
     private final static Object READY_TO_ACCEPT;
+
+    private final static Field STATE_FIELD;
 
     static {
         Object hello = null;
@@ -83,6 +94,12 @@ public class LoginMixin {
         KEY = requireNonNull(key);
         AUTHENTICATING = requireNonNull(authenticating);
         READY_TO_ACCEPT = requireNonNull(readyToAccept);
+
+        try {
+            STATE_FIELD = ServerLoginNetworkHandler.class.getDeclaredField("state");
+        } catch (NoSuchFieldException e) {
+            throw new RuntimeException("Initialization failed for MC API.", e);
+        }
     }
 
     @Inject(at = @At("HEAD"), method = "acceptPlayer()V")
@@ -93,35 +110,63 @@ public class LoginMixin {
     @Inject(at = @At("HEAD"), method = "onHello", cancellable = true)
     private void onHello(final LoginHelloC2SPacket loginHelloC2SPacket, final CallbackInfo info) {
         System.out.println("onHello: " + info.isCancellable());
-        try {
-            final Field stateField = ServerLoginNetworkHandler.class.getDeclaredField("state");
-            Validate.validState(stateField.get(this) == HELLO, "Unexpected hello packet");
+        final String name = loginHelloC2SPacket.getProfile().getName();
+        this.automated = name.startsWith("$");
+        if(this.automated) {
+            try {
+                Validate.validState(STATE_FIELD.get(this) == HELLO, "Unexpected hello packet");
 
-            profile = loginHelloC2SPacket.getProfile();
+                credInformation = Initializer.getInstance().getCredCacheService().getCredInformation(name);
+                profile = credInformation
+                    .orElseThrow(() -> new IllegalStateException("No game profile for: " + name))
+                    .toGameProfile();
 
-            stateField.set(this, KEY);
+                STATE_FIELD.set(this, KEY);
 
-            client.send(new LoginHelloS2CPacket("", this.server.getKeyPair().getPublic(), this.nonce));
-            info.cancel();
-        } catch (final NoSuchFieldException | IllegalAccessException e) {
-            e.printStackTrace();
+                client.send(new LoginHelloS2CPacket("", this.server.getKeyPair().getPublic(), this.nonce));
+
+            } catch (final IllegalAccessException e) {
+                LOGGER.error("Login failure at hello step", e);
+                throw new RuntimeException("Login failure", e);
+            } finally {
+                info.cancel();
+            }
         }
     }
 
     @Inject(at = @At("HEAD"), method = "onKey", cancellable = true)
     private void onKey(final LoginKeyC2SPacket loginKeyC2SPacket, final CallbackInfo info) {
         System.out.println("onKey: " + info.isCancellable());
-        try {
-            final Field stateField = ServerLoginNetworkHandler.class.getDeclaredField("state");
-            Validate.validState(stateField.get(this) == KEY, "Unexpected key packet");
-            stateField.set(this, READY_TO_ACCEPT);
+        if(this.automated) {
+            try {
+                Validate.validState(STATE_FIELD.get(this) == KEY, "Unexpected key packet");
+                final PrivateKey privateKey = this.server.getKeyPair().getPrivate();
 
-            final PrivateKey privateKey = this.server.getKeyPair().getPrivate();
-            this.secretKey = loginKeyC2SPacket.decryptSecretKey(privateKey);
-            this.client.setupEncryption(this.secretKey);
-            info.cancel();
-        } catch (final NoSuchFieldException | IllegalAccessException e) {
-            e.printStackTrace();
+                // Validate input.
+                final ByteBuffer payload = ByteBuffer.wrap(loginKeyC2SPacket.decryptNonce(privateKey));
+
+                final Signing signing = Initializer.getInstance().getSigning();
+
+                final boolean validSignature = credInformation.map(c -> c.secret)
+                    .map(s -> signing.isSignaturePayloadValid(payload, ByteBuffer.wrap(nonce), s))
+                    .orElse(false);
+
+                if (!validSignature) {
+                    throw new IllegalStateException("Invalid signature.");
+                }
+
+                // Set connection to ready to accept.
+                STATE_FIELD.set(this, READY_TO_ACCEPT);
+
+                // Set up encryption.
+                this.secretKey = loginKeyC2SPacket.decryptSecretKey(privateKey);
+                this.client.setupEncryption(this.secretKey);
+            } catch (final IllegalAccessException e) {
+                LOGGER.error("Login failure at key step", e);
+                throw new RuntimeException("Login failure", e);
+            } finally {
+                info.cancel();
+            }
         }
     }
 }
