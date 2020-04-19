@@ -29,13 +29,10 @@ import java.time.Clock
 import java.util.Arrays
 import java.util.function.Supplier
 
-const val HOST = "localhost"
-const val PORT = 25566
-
 fun main(args: Array<String>) {
     val credFile = ClassLoader.getSystemClassLoader().getResource("keys.json")
     val creds = Gson().fromJson(credFile!!.readText(Charset.defaultCharset()), Creds::class.java)
-    status()
+    status(creds)
 
     val protocol: MCAPIProtocol?
     try {
@@ -47,7 +44,7 @@ fun main(args: Array<String>) {
     }
 
     val signing = Signing(Clock.systemUTC())
-    val client = Client(HOST, PORT, protocol, TcpSessionFactory())
+    val client = Client(creds.host, creds.port, protocol, TcpSessionFactory())
     client.session.addListener(MCAPIClientListener(SubProtocol.LOGIN, signing, Supplier { creds.secret }))
     client.session.addListener(HandlerChain()
             .addLink(EntityTracker())
@@ -86,9 +83,9 @@ fun main(args: Array<String>) {
     client.session.connect()
 }
 
-fun status() {
+fun status(creds: Creds) {
     val protocol = MinecraftProtocol(SubProtocol.STATUS)
-    val client = Client(HOST, PORT, protocol, TcpSessionFactory())
+    val client = Client(creds.host, creds.port, protocol, TcpSessionFactory())
     client.session.addListener(object: SessionAdapter() {
         override fun packetReceived(event: PacketReceivedEvent) {
             if (event.getPacket<Packet>() is StatusResponsePacket) {
@@ -100,4 +97,4 @@ fun status() {
     client.session.connect()
 }
 
-data class Creds(val key: String, val secret: String)
+data class Creds(val host: String, val port: Int, val key: String, val secret: String)
