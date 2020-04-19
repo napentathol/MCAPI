@@ -3,3 +3,4 @@ MCProtocolLib/
 .gradle/
 build/
 run/
+keys.json

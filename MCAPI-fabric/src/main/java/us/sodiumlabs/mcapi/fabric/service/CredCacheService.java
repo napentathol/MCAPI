@@ -4,6 +4,7 @@ import com.google.gson.Gson;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
+import org.apache.commons.lang3.RandomStringUtils;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import us.sodiumlabs.mcapi.common.BaseUtils;
@@ -14,10 +15,14 @@ import java.io.FileReader;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.Random;
 import java.util.UUID;
+import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 
 import static java.util.Objects.requireNonNull;
 
@@ -29,6 +34,9 @@ public class CredCacheService {
     public static final String UUID = "uuid";
     public static final String OWNER = "owner";
     private static final Object synchronizer = new Object();
+
+    private static final String RAND_CHARS = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+    private static final int ID_LENGTH = 8;
 
     private final Gson gson = new Gson();
 
@@ -69,9 +77,17 @@ public class CredCacheService {
         }
     }
 
+    public List<CredInformation> listUsers(final UUID ownerUuid) {
+        synchronized (synchronizer) {
+            return credInformationMap.values().stream()
+                .filter(c -> Objects.equals(c.ownerUuid, ownerUuid))
+                .collect(Collectors.toList());
+        }
+    }
+
     public CredInformation createCredInformation(final String name, final UUID ownerUuid) {
         final CredInformation credInformation = new CredInformation(
-            "$MCAI" + BaseUtils.toBase64(ByteBufferUtils.randomBytes(random, 8)),
+            "$MCAI" + generateIdString(),
             name,
             BaseUtils.toBase64(ByteBufferUtils.randomBytes(random, 32)),
             java.util.UUID.randomUUID(),
@@ -83,6 +99,19 @@ public class CredCacheService {
         }
 
         return credInformation;
+    }
+
+    public void deleteCredInformation(final String id) {
+        synchronized (synchronizer) {
+            credInformationMap.remove(id);
+            save();
+        }
+    }
+
+    private String generateIdString() {
+        return IntStream.generate(() -> random.nextInt(RAND_CHARS.length())).limit(ID_LENGTH)
+            .collect(StringBuilder::new, (s, i) -> s.append(RAND_CHARS.charAt(i)), (s1, s2) -> s1.append(s2.toString()))
+            .toString();
     }
 
     private void load() {

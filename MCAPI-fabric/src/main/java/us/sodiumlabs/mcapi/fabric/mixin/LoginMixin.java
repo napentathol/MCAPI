@@ -16,7 +16,10 @@ import org.spongepowered.asm.mixin.Shadow;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
+import us.sodiumlabs.mcapi.common.BaseUtils;
+import us.sodiumlabs.mcapi.common.ByteBufferUtils;
 import us.sodiumlabs.mcapi.common.Signing;
+import us.sodiumlabs.mcapi.common.SigningUtils;
 import us.sodiumlabs.mcapi.fabric.Initializer;
 import us.sodiumlabs.mcapi.fabric.service.CredInformation;
 
@@ -104,12 +107,11 @@ public class LoginMixin {
 
     @Inject(at = @At("HEAD"), method = "acceptPlayer()V")
     private void onAccept(final CallbackInfo info) {
-        System.out.println("acceptPlayer");
+        credInformation.ifPresent(c -> LOGGER.info("Accepting automated player: " + c.credId));
     }
 
     @Inject(at = @At("HEAD"), method = "onHello", cancellable = true)
     private void onHello(final LoginHelloC2SPacket loginHelloC2SPacket, final CallbackInfo info) {
-        System.out.println("onHello: " + info.isCancellable());
         final String name = loginHelloC2SPacket.getProfile().getName();
         this.automated = name.startsWith("$");
         if(this.automated) {
@@ -136,7 +138,6 @@ public class LoginMixin {
 
     @Inject(at = @At("HEAD"), method = "onKey", cancellable = true)
     private void onKey(final LoginKeyC2SPacket loginKeyC2SPacket, final CallbackInfo info) {
-        System.out.println("onKey: " + info.isCancellable());
         if(this.automated) {
             try {
                 Validate.validState(STATE_FIELD.get(this) == KEY, "Unexpected key packet");
