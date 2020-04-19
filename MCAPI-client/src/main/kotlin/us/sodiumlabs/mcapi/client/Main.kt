@@ -16,6 +16,13 @@ import com.github.steveice10.packetlib.event.session.SessionAdapter
 import com.github.steveice10.packetlib.packet.Packet
 import com.github.steveice10.packetlib.tcp.TcpSessionFactory
 import com.google.gson.Gson
+import us.sodiumlabs.mcapi.client.trackers.EntityTracker
+import us.sodiumlabs.mcapi.client.trackers.MiscTracker
+import us.sodiumlabs.mcapi.client.trackers.PlayerTracker
+import us.sodiumlabs.mcapi.client.trackers.ServerCommsTracker
+import us.sodiumlabs.mcapi.client.trackers.WorldTracker
+import us.sodiumlabs.mcapi.client.utilities.HandlerChain
+import us.sodiumlabs.mcapi.client.utilities.HandlerLink
 import us.sodiumlabs.mcapi.common.Signing
 import java.nio.charset.Charset
 import java.time.Clock
@@ -30,7 +37,7 @@ fun main(args: Array<String>) {
     val creds = Gson().fromJson(credFile!!.readText(Charset.defaultCharset()), Creds::class.java)
     status()
 
-    var protocol: MCAPIProtocol? = null
+    val protocol: MCAPIProtocol?
     try {
         protocol = MCAPIProtocol(creds.key)
         protocol.isUseDefaultListeners = false
@@ -42,6 +49,19 @@ fun main(args: Array<String>) {
     val signing = Signing(Clock.systemUTC())
     val client = Client(HOST, PORT, protocol, TcpSessionFactory())
     client.session.addListener(MCAPIClientListener(SubProtocol.LOGIN, signing, Supplier { creds.secret }))
+    client.session.addListener(HandlerChain()
+            .addLink(EntityTracker())
+            .addLink(WorldTracker())
+            .addLink(PlayerTracker())
+            .addLink(ServerCommsTracker())
+            .addLink(MiscTracker())
+            .addLink(object : HandlerLink {
+                override fun packetReceived(event: PacketReceivedEvent): Boolean {
+                    println(event.getPacket<Packet>())
+                    return false
+                }
+            })
+    )
     client.session.addListener(object : SessionAdapter() {
         override fun packetReceived(event: PacketReceivedEvent) {
             if (event.getPacket<Packet>() is ServerJoinGamePacket) {
@@ -52,7 +72,6 @@ fun main(args: Array<String>) {
                 if (message is TranslationMessage) {
                     println("Received Translation Components: " + Arrays.toString(message.translationParams))
                 }
-                //weevent.session.disconnect("Finished")
             }
         }
 
