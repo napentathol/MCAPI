@@ -16,7 +16,7 @@ repositories {
 dependencies {
     implementation("org.jetbrains.kotlin:kotlin-stdlib-jdk8")
     compile("com.github.Steveice10:MCProtocolLib:1.15-1")
-    compile("us.sodiumlabs:MCAPI-common:1.0-SNAPSHOT")
+    compile(project(":MCAPI-common"))
 }
 
 val compileKotlin by tasks.getting(org.jetbrains.kotlin.gradle.tasks.KotlinCompile::class) {
