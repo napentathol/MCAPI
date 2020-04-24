@@ -15,13 +15,12 @@ import com.github.steveice10.packetlib.packet.Packet
 import us.sodiumlabs.mcapi.common.Signing
 import java.nio.ByteBuffer
 import java.security.NoSuchAlgorithmException
-import java.util.function.Supplier
 import javax.crypto.KeyGenerator
 import javax.crypto.SecretKey
 
 const val PROTOCOL_VERSION = 575
 
-class MCAPIClientListener(val subProtocol: SubProtocol, val signing: Signing, val secretSupplier: Supplier<String>):
+class MCAPIClientListener(val subProtocol: SubProtocol, val signing: Signing, val secretSupplier: String):
         ClientListener(subProtocol) {
 
     override fun connected(event: ConnectedEvent) {
@@ -41,7 +40,7 @@ class MCAPIClientListener(val subProtocol: SubProtocol, val signing: Signing, va
         val protocol = event.session.packetProtocol as MCAPIProtocol
         if(protocol.subProtocol == SubProtocol.LOGIN && event.getPacket<Packet>() is EncryptionRequestPacket) {
             val packet = event.getPacket<EncryptionRequestPacket>()
-            val payload = signing.constructSignaturePayload(ByteBuffer.wrap(packet.verifyToken), secretSupplier.get())
+            val payload = signing.constructSignaturePayload(ByteBuffer.wrap(packet.verifyToken), secretSupplier)
             val key = generateKey()
 
             event.session.send(EncryptionResponsePacket(packet.publicKey, key, payload.array()))

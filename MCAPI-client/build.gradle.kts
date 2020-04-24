@@ -16,6 +16,8 @@ repositories {
 dependencies {
     implementation("org.jetbrains.kotlin:kotlin-stdlib-jdk8")
     compile("com.github.Steveice10:MCProtocolLib:1.15-1")
+    // https://mvnrepository.com/artifact/org.apache.logging.log4j/log4j
+    compile("org.apache.logging.log4j:log4j-api:2.13.2")
     compile(project(":MCAPI-common"))
 }
 

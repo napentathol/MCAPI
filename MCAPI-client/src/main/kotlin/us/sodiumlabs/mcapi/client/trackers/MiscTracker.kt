@@ -6,7 +6,10 @@ import com.github.steveice10.mc.protocol.packet.ingame.server.ServerDeclareRecip
 import com.github.steveice10.mc.protocol.packet.ingame.server.ServerDeclareTagsPacket
 import com.github.steveice10.mc.protocol.packet.ingame.server.ServerPluginMessagePacket
 import com.github.steveice10.mc.protocol.packet.ingame.server.ServerUnlockRecipesPacket
+import com.github.steveice10.mc.protocol.packet.ingame.server.world.ServerNotifyClientPacket
+import com.github.steveice10.mc.protocol.packet.ingame.server.world.ServerPlayBuiltinSoundPacket
 import com.github.steveice10.mc.protocol.packet.ingame.server.world.ServerPlayEffectPacket
+import com.github.steveice10.mc.protocol.packet.ingame.server.world.ServerSpawnParticlePacket
 import com.github.steveice10.packetlib.event.session.PacketReceivedEvent
 import us.sodiumlabs.mcapi.client.utilities.ConcretePacketChain
 import us.sodiumlabs.mcapi.client.utilities.HandlerLink
@@ -22,6 +25,9 @@ class MiscTracker: HandlerLink {
                 .next(ServerDeclareCommandsPacket::class.java, Consumer {  })
                 .next(ServerUnlockRecipesPacket::class.java, Consumer {  })
                 .next(ServerAdvancementsPacket::class.java, Consumer {  })
+                .next(ServerPlayBuiltinSoundPacket::class.java, Consumer {  })
+                .next(ServerSpawnParticlePacket::class.java, Consumer {  })
+                .next(ServerNotifyClientPacket::class.java, Consumer {  })
                 .finish()
     }
 }
