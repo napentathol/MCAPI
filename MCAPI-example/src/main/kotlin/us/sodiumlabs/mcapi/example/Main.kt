@@ -1,8 +1,10 @@
-package us.sodiumlabs.mcapi.client
+package us.sodiumlabs.mcapi.example
 
+import com.github.steveice10.mc.protocol.data.game.ClientRequest
 import com.github.steveice10.mc.protocol.data.message.Message
 import com.github.steveice10.mc.protocol.data.message.TranslationMessage
 import com.github.steveice10.mc.protocol.packet.ingame.client.ClientChatPacket
+import com.github.steveice10.mc.protocol.packet.ingame.client.ClientRequestPacket
 import com.github.steveice10.mc.protocol.packet.ingame.server.ServerChatPacket
 import com.github.steveice10.mc.protocol.packet.ingame.server.ServerJoinGamePacket
 import com.github.steveice10.packetlib.event.session.DisconnectedEvent
@@ -11,17 +13,23 @@ import com.github.steveice10.packetlib.event.session.SessionAdapter
 import com.github.steveice10.packetlib.packet.Packet
 import com.google.gson.Gson
 import org.apache.logging.log4j.LogManager
+import us.sodiumlabs.mcapi.client.Client
+import us.sodiumlabs.mcapi.client.Creds
 import java.nio.charset.Charset
 import java.util.Arrays
 
-fun main(args: Array<String>) {
+fun main() {
     val log = LogManager.getFormatterLogger()
 
     val credFile = ClassLoader.getSystemClassLoader().getResource("keys.json")
     val creds = Gson().fromJson(credFile!!.readText(Charset.defaultCharset()), Creds::class.java)
     val client = Client(creds)
 
-    log.info(client.status())
+    val statusFuture = client.status()
+    while(!statusFuture.isDone) {
+        Thread.sleep(100)
+    }
+    log.info(String.format("Status: %s", statusFuture.get()))
     client.init()
     client.registerDefaultTrackers()
 
@@ -47,4 +55,5 @@ fun main(args: Array<String>) {
     })
 
     client.connect()
+    client.send(ClientRequestPacket(ClientRequest.RESPAWN))
 }

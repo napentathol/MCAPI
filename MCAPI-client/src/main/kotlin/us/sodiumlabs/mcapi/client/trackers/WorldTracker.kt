@@ -3,6 +3,7 @@ package us.sodiumlabs.mcapi.client.trackers
 import com.github.steveice10.mc.protocol.data.game.setting.Difficulty
 import com.github.steveice10.mc.protocol.packet.ingame.server.ServerDifficultyPacket
 import com.github.steveice10.mc.protocol.packet.ingame.server.world.ServerBlockChangePacket
+import com.github.steveice10.mc.protocol.packet.ingame.server.world.ServerBlockValuePacket
 import com.github.steveice10.mc.protocol.packet.ingame.server.world.ServerChunkDataPacket
 import com.github.steveice10.mc.protocol.packet.ingame.server.world.ServerMultiBlockChangePacket
 import com.github.steveice10.mc.protocol.packet.ingame.server.world.ServerUpdateLightPacket
@@ -23,6 +24,7 @@ class WorldTracker: HandlerLink {
                 .next(ServerChunkDataPacket::class.java, Consumer {  })
                 .next(ServerUpdateLightPacket::class.java, Consumer {  })
                 .next(ServerBlockChangePacket::class.java, Consumer {  })
+                .next(ServerBlockValuePacket::class.java, Consumer {  })
                 .next(ServerMultiBlockChangePacket::class.java, Consumer {  })
                 .next(ServerWorldBorderPacket::class.java, Consumer {  })
                 .next(ServerDifficultyPacket::class.java, Consumer { packet ->

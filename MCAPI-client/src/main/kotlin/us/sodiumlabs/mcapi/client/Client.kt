@@ -4,6 +4,7 @@ import com.github.steveice10.mc.auth.exception.request.RequestException
 import com.github.steveice10.mc.protocol.MinecraftProtocol
 import com.github.steveice10.mc.protocol.data.SubProtocol
 import com.github.steveice10.mc.protocol.data.status.ServerStatusInfo
+import com.github.steveice10.mc.protocol.packet.login.server.LoginSuccessPacket
 import com.github.steveice10.mc.protocol.packet.status.server.StatusResponsePacket
 import com.github.steveice10.packetlib.Client
 import com.github.steveice10.packetlib.event.session.PacketReceivedEvent
@@ -27,6 +28,8 @@ class Client(private val creds: Creds) {
     private val log = LogManager.getFormatterLogger()
 
     private lateinit var client: Client
+
+    private lateinit var future: Future<Any>
 
     fun status(): Future<ServerStatusInfo> {
         val protocol = MinecraftProtocol(SubProtocol.STATUS)
@@ -55,9 +58,17 @@ class Client(private val creds: Creds) {
             return
         }
 
+        future = CompletableFuture()
         val signing = Signing(Clock.systemUTC())
         client = Client(creds.host, creds.port, protocol, TcpSessionFactory())
         client.session.addListener(MCAPIClientListener(SubProtocol.LOGIN, signing, creds.secret))
+        client.session.addListener(object : SessionAdapter() {
+            override fun packetReceived(event: PacketReceivedEvent?) {
+                if(event!!.getPacket<Packet>() is LoginSuccessPacket) {
+                    (future as CompletableFuture).complete(Any())
+                }
+            }
+        })
     }
 
     fun registerDefaultTrackers() {
@@ -80,10 +91,17 @@ class Client(private val creds: Creds) {
 
     fun connect() {
         client.session.connect()
+        while (!future.isDone) {
+            Thread.sleep(100)
+        }
     }
 
     fun disconnect() {
         client.session.disconnect("Shutting down.")
+    }
+
+    fun send(packet: Packet) {
+        client.session.send(packet)
     }
 }
 

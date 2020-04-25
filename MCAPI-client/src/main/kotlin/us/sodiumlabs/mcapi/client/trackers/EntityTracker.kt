@@ -5,7 +5,9 @@ import com.github.steveice10.mc.protocol.data.game.entity.attribute.Attribute
 import com.github.steveice10.mc.protocol.data.game.entity.metadata.EntityMetadata
 import com.github.steveice10.mc.protocol.data.game.entity.type.MobType
 import com.github.steveice10.mc.protocol.data.game.entity.type.`object`.ObjectType
+import com.github.steveice10.mc.protocol.packet.ingame.server.entity.ServerEntityAnimationPacket
 import com.github.steveice10.mc.protocol.packet.ingame.server.entity.ServerEntityDestroyPacket
+import com.github.steveice10.mc.protocol.packet.ingame.server.entity.ServerEntityEquipmentPacket
 import com.github.steveice10.mc.protocol.packet.ingame.server.entity.ServerEntityHeadLookPacket
 import com.github.steveice10.mc.protocol.packet.ingame.server.entity.ServerEntityMetadataPacket
 import com.github.steveice10.mc.protocol.packet.ingame.server.entity.ServerEntityPositionPacket
@@ -142,6 +144,8 @@ class EntityTracker: HandlerLink {
                         if(!removed) println("Could not remove entity id $it")
                     }
                 })
+                .next(ServerEntityAnimationPacket::class.java, Consumer {  })
+                .next(ServerEntityEquipmentPacket::class.java, Consumer {  })
                 .finish()
     }
 }
