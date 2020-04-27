@@ -12,15 +12,16 @@ import com.github.steveice10.packetlib.event.session.SessionAdapter
 import com.github.steveice10.packetlib.packet.Packet
 import com.github.steveice10.packetlib.tcp.TcpSessionFactory
 import org.apache.logging.log4j.LogManager
-import us.sodiumlabs.mcapi.client.trackers.EntityTracker
 import us.sodiumlabs.mcapi.client.trackers.ErrorTracker
 import us.sodiumlabs.mcapi.client.trackers.MiscTracker
-import us.sodiumlabs.mcapi.client.trackers.PlayerTracker
 import us.sodiumlabs.mcapi.client.trackers.ServerCommsTracker
 import us.sodiumlabs.mcapi.client.trackers.WorldTracker
+import us.sodiumlabs.mcapi.client.trackers.entity.EntityTracker
 import us.sodiumlabs.mcapi.client.utilities.HandlerChain
+import us.sodiumlabs.mcapi.client.utilities.HandlerLink
 import us.sodiumlabs.mcapi.common.Signing
 import java.time.Clock
+import java.util.Optional
 import java.util.concurrent.CompletableFuture
 import java.util.concurrent.Future
 
@@ -30,6 +31,10 @@ class Client(private val creds: Creds) {
     private lateinit var client: Client
 
     private lateinit var future: Future<Any>
+
+    private val handler = HandlerChain()
+
+    private val trackers = linkedMapOf<String, HandlerLink>()
 
     fun status(): Future<ServerStatusInfo> {
         val protocol = MinecraftProtocol(SubProtocol.STATUS)
@@ -69,16 +74,34 @@ class Client(private val creds: Creds) {
                 }
             }
         })
+
+        client.session.addListener(handler)
+    }
+
+    fun registerLink(key: String, tracker: HandlerLink) {
+        trackers[key] = tracker
+        handler.addLink(tracker)
     }
 
     fun registerDefaultTrackers() {
-        client.session.addListener(HandlerChain()
-                .addLink(EntityTracker())
-                .addLink(WorldTracker())
-                .addLink(PlayerTracker())
-                .addLink(ServerCommsTracker())
-                .addLink(MiscTracker())
-                .addLink(ErrorTracker()))
+        registerLink("EntityTracker", EntityTracker())
+        registerLink("WorldTracker", WorldTracker())
+        registerLink("ServerCommsTracker", ServerCommsTracker())
+        registerLink("MiscTracker", MiscTracker())
+        registerLink("ErrorTracker", ErrorTracker())
+    }
+
+    fun removeLink(key: String) {
+        trackers.remove(key)
+        handler.clearAllLinks()
+        trackers.values.forEach {
+            handler.addLink(it)
+        }
+    }
+
+    @Suppress("UNCHECKED_CAST")
+    fun <T: HandlerLink> queryLink(key: String): Optional<T> {
+        return Optional.ofNullable(trackers[key]) as Optional<T>
     }
 
     fun addListener(sessionAdapter: SessionAdapter) {

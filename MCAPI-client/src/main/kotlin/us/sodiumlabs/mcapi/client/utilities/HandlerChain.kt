@@ -16,6 +16,10 @@ class HandlerChain: SessionAdapter() {
         chain.add(link)
         return this
     }
+
+    fun clearAllLinks() {
+        chain.clear()
+    }
 }
 
 interface HandlerLink {

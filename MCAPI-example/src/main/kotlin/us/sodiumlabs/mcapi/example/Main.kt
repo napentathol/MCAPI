@@ -7,6 +7,8 @@ import com.github.steveice10.mc.protocol.packet.ingame.client.ClientChatPacket
 import com.github.steveice10.mc.protocol.packet.ingame.client.ClientRequestPacket
 import com.github.steveice10.mc.protocol.packet.ingame.server.ServerChatPacket
 import com.github.steveice10.mc.protocol.packet.ingame.server.ServerJoinGamePacket
+import com.github.steveice10.mc.protocol.packet.ingame.server.entity.player.ServerPlayerHealthPacket
+import com.github.steveice10.packetlib.Session
 import com.github.steveice10.packetlib.event.session.DisconnectedEvent
 import com.github.steveice10.packetlib.event.session.PacketReceivedEvent
 import com.github.steveice10.packetlib.event.session.SessionAdapter
@@ -15,6 +17,8 @@ import com.google.gson.Gson
 import org.apache.logging.log4j.LogManager
 import us.sodiumlabs.mcapi.client.Client
 import us.sodiumlabs.mcapi.client.Creds
+import us.sodiumlabs.mcapi.client.trackers.entity.DeathListener
+import us.sodiumlabs.mcapi.client.trackers.entity.EntityTracker
 import java.nio.charset.Charset
 import java.util.Arrays
 
@@ -54,6 +58,14 @@ fun main() {
         }
     })
 
+    client.queryLink<EntityTracker>("EntityTracker").ifPresent { tracker ->
+        tracker.addDeathListener(object: DeathListener {
+            override fun onDeath(session: Session, packet: ServerPlayerHealthPacket) {
+                log.info("I got here.")
+                session.send(ClientRequestPacket(ClientRequest.RESPAWN))
+                session.send(ClientChatPacket("I have returned."))
+            }
+        })
+    }
     client.connect()
-    client.send(ClientRequestPacket(ClientRequest.RESPAWN))
 }
