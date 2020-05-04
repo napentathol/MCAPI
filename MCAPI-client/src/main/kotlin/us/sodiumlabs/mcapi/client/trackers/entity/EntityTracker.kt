@@ -8,6 +8,8 @@ import com.github.steveice10.mc.protocol.data.game.entity.metadata.EntityMetadat
 import com.github.steveice10.mc.protocol.data.game.entity.player.GameMode
 import com.github.steveice10.mc.protocol.data.game.entity.type.MobType
 import com.github.steveice10.mc.protocol.data.game.entity.type.`object`.ObjectType
+import com.github.steveice10.mc.protocol.packet.ingame.client.player.ClientPlayerPositionPacket
+import com.github.steveice10.mc.protocol.packet.ingame.client.world.ClientTeleportConfirmPacket
 import com.github.steveice10.mc.protocol.packet.ingame.server.ServerJoinGamePacket
 import com.github.steveice10.mc.protocol.packet.ingame.server.ServerPlayerListEntryPacket
 import com.github.steveice10.mc.protocol.packet.ingame.server.entity.ServerEntityAnimationPacket
@@ -25,6 +27,7 @@ import com.github.steveice10.mc.protocol.packet.ingame.server.entity.ServerEntit
 import com.github.steveice10.mc.protocol.packet.ingame.server.entity.player.ServerPlayerAbilitiesPacket
 import com.github.steveice10.mc.protocol.packet.ingame.server.entity.player.ServerPlayerChangeHeldItemPacket
 import com.github.steveice10.mc.protocol.packet.ingame.server.entity.player.ServerPlayerHealthPacket
+import com.github.steveice10.mc.protocol.packet.ingame.server.entity.player.ServerPlayerPositionRotationPacket
 import com.github.steveice10.mc.protocol.packet.ingame.server.entity.player.ServerPlayerSetExperiencePacket
 import com.github.steveice10.mc.protocol.packet.ingame.server.entity.spawn.ServerSpawnMobPacket
 import com.github.steveice10.mc.protocol.packet.ingame.server.entity.spawn.ServerSpawnObjectPacket
@@ -32,9 +35,11 @@ import com.github.steveice10.mc.protocol.packet.ingame.server.entity.spawn.Serve
 import com.github.steveice10.mc.protocol.packet.login.server.LoginSuccessPacket
 import com.github.steveice10.packetlib.event.session.PacketReceivedEvent
 import org.apache.logging.log4j.LogManager
+import us.sodiumlabs.mcapi.client.Client
 import us.sodiumlabs.mcapi.client.utilities.ConcretePacketChain
 import us.sodiumlabs.mcapi.client.utilities.HandlerLink
 import java.time.LocalDateTime
+import java.util.Optional
 import java.util.function.Consumer
 import java.util.function.Predicate
 
@@ -53,6 +58,22 @@ class EntityTracker: HandlerLink {
 
     override fun packetReceived(event: PacketReceivedEvent): Boolean {
         return ConcretePacketChain(event)
+                .next(ServerPlayerPositionRotationPacket::class.java, Consumer { packet ->
+                    event.session.send(ClientTeleportConfirmPacket(packet.teleportId))
+                    entityMap.compute(selfId) { key, e ->
+                        if(e == null) {
+                            Entity(key, MobTypeContainer(MobType.PLAYER), packet.yaw, packet.pitch, packet.x, packet.y, packet.z)
+                        } else {
+                            e.x = packet.x
+                            e.y = packet.y
+                            e.z = packet.z
+                            e.yaw = packet.yaw
+                            e.pitch = packet.pitch
+
+                            e
+                        }
+                    }
+                })
                 .next(ServerSpawnMobPacket::class.java, Consumer { packet ->
                     entityMap[packet.entityId] =
                             Entity(packet.entityId, MobTypeContainer(packet.type), packet.yaw, packet.pitch, packet.x, packet.y, packet.z)
@@ -249,6 +270,28 @@ class EntityTracker: HandlerLink {
                 ping = playerListEntry.ping)
         metadata.gameMode = playerListEntry.gameMode
         return metadata
+    }
+
+    fun setPlayerPosition(client: Client, x: Double, y: Double, z: Double) {
+        val packet = ClientPlayerPositionPacket(true, x, y, z)
+        client.send(packet)
+        entityMap[selfId]?.x = x
+        entityMap[selfId]?.y = y
+        entityMap[selfId]?.z = z
+    }
+
+    fun getPlayerEntityByUsername(username: String): Optional<Entity> {
+        return playerMetadata.values.stream().filter { playerMetadata ->
+            playerMetadata.name == username
+        }.findFirst().flatMap { playerMetadata ->
+            Optional.ofNullable(playerMap[playerMetadata.id])
+        }.flatMap { id ->
+            Optional.ofNullable(entityMap[id])
+        }
+    }
+
+    fun getOwnEntity(): Optional<Entity> {
+        return Optional.ofNullable(entityMap[selfId])
     }
 }
 

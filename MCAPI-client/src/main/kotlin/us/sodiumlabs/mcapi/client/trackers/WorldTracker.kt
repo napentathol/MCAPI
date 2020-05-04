@@ -7,6 +7,7 @@ import com.github.steveice10.mc.protocol.packet.ingame.server.world.ServerBlockV
 import com.github.steveice10.mc.protocol.packet.ingame.server.world.ServerChunkDataPacket
 import com.github.steveice10.mc.protocol.packet.ingame.server.world.ServerMultiBlockChangePacket
 import com.github.steveice10.mc.protocol.packet.ingame.server.world.ServerSpawnPositionPacket
+import com.github.steveice10.mc.protocol.packet.ingame.server.world.ServerUnloadChunkPacket
 import com.github.steveice10.mc.protocol.packet.ingame.server.world.ServerUpdateLightPacket
 import com.github.steveice10.mc.protocol.packet.ingame.server.world.ServerUpdateTimePacket
 import com.github.steveice10.mc.protocol.packet.ingame.server.world.ServerUpdateViewPositionPacket
@@ -27,6 +28,7 @@ class WorldTracker: HandlerLink {
     override fun packetReceived(event: PacketReceivedEvent): Boolean {
         return ConcretePacketChain(event)
                 .next(ServerChunkDataPacket::class.java, Consumer {  })
+                .next(ServerUnloadChunkPacket::class.java, Consumer {  })
                 .next(ServerUpdateLightPacket::class.java, Consumer {  })
                 .next(ServerBlockChangePacket::class.java, Consumer {  })
                 .next(ServerBlockValuePacket::class.java, Consumer {  })
