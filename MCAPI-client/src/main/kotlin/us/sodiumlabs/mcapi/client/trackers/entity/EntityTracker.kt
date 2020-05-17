@@ -272,7 +272,7 @@ class EntityTracker: HandlerLink {
         return metadata
     }
 
-    fun setPlayerPosition(client: Client, x: Double, y: Double, z: Double) {
+    fun setPlayerPosition(client: Client, x: Double, y: Double, z: Double, onGround: Boolean) {
         val packet = ClientPlayerPositionPacket(true, x, y, z)
         client.send(packet)
         entityMap[selfId]?.x = x

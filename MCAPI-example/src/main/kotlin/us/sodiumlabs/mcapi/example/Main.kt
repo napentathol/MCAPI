@@ -19,6 +19,7 @@ import com.google.gson.Gson
 import org.apache.logging.log4j.LogManager
 import us.sodiumlabs.mcapi.client.Client
 import us.sodiumlabs.mcapi.client.Creds
+import us.sodiumlabs.mcapi.client.trackers.WorldTracker
 import us.sodiumlabs.mcapi.client.trackers.entity.DeathListener
 import us.sodiumlabs.mcapi.client.trackers.entity.EntityTracker
 import java.nio.charset.Charset
@@ -43,6 +44,11 @@ fun main() {
     client.init()
     client.registerDefaultTrackers()
 
+    val entityTracker = client.queryLink<EntityTracker>("EntityTracker")
+            .orElseThrow { RuntimeException("No entity tracker") }
+    val worldTracker = client.queryLink<WorldTracker>("WorldTracker")
+            .orElseThrow { RuntimeException("No world tracker") }
+
     client.addListener(object : SessionAdapter() {
         override fun packetReceived(event: PacketReceivedEvent) {
             if (event.getPacket<Packet>() is ServerJoinGamePacket) {
@@ -59,15 +65,17 @@ fun main() {
                             event.session.send(ClientChatPacket("/w $username OK"))
                             followMe.set(Optional.of(username))
 
-                            client.queryLink<EntityTracker>("EntityTracker").flatMap { tracker ->
-                                tracker.getPlayerEntityByUsername(username)
-                            }.ifPresent {
+                            entityTracker.getPlayerEntityByUsername(username).ifPresent {
                                 event.session.send(ClientChatPacket("/w $username following ${it.entityId}"))
                             }
                         } else if (message.translationParams[1].text.toLowerCase() == "stop") {
                             val username = message.translationParams[0].text
                             event.session.send(ClientChatPacket("/w $username OK"))
                             followMe.set(Optional.empty())
+                        } else if (message.translationParams[1].text.toLowerCase() == "describe column") {
+                            entityTracker.getOwnEntity().ifPresent { self ->
+                                log.info(worldTracker.listColumn(self.x, self.z).contentToString())
+                            }
                         }
                     }
                 }
@@ -82,25 +90,28 @@ fun main() {
             if (event.cause != null) {
                 event.cause.printStackTrace()
             }
+            System.exit(-1)
         }
     })
 
-    client.queryLink<EntityTracker>("EntityTracker").ifPresent { tracker ->
-        tracker.addDeathListener(object: DeathListener {
+    entityTracker.addDeathListener(object: DeathListener {
             override fun onDeath(session: Session, packet: ServerPlayerHealthPacket) {
                 session.send(ClientRequestPacket(ClientRequest.RESPAWN))
                 session.send(ClientChatPacket("I have returned."))
             }
         })
-    }
 
     client.connect()
-    val entityTracker = client.queryLink<EntityTracker>("EntityTracker")
-            .orElseThrow { RuntimeException("No entity tracker") }
 
+    var ySpeed = 0.0
     while(true) {
         val selfEntity = entityTracker.getOwnEntity()
+
         selfEntity.ifPresent { self ->
+            var movX = 0.0
+            var movY = 0.0
+            var movZ = 0.0
+
             followMe.get().flatMap { username ->
                 entityTracker.getPlayerEntityByUsername(username)
             }.ifPresent { entity ->
@@ -111,14 +122,37 @@ fun main() {
                 val total = Math.sqrt(diffX * diffX + diffY * diffY + diffZ * diffZ)
 
                 if (total > 1) {
-                    val movX = diffX * 0.5 / total
-                    val movY = diffY * 0.5 / total
-                    val movZ = diffZ * 0.5 / total
-
-                    entityTracker.setPlayerPosition(client, self.x + movX, self.y + movY, self.z + movZ)
+                    movX = diffX * 0.5 / total
+                    movY = diffY * 0.5 / total
+                    movZ = diffZ * 0.5 / total
                 }
             }
+
+            val newX = self.x + movX
+            var newY = self.y + movY
+            val newZ = self.z + movZ
+
+            var onGround = worldTracker.onGround(newX, newY, newZ)
+
+            if(!onGround) {
+                val groundY = worldTracker.findGroundY(newX, newY, newZ);
+                newY += ySpeed
+
+                if(newY < groundY) {
+                    newY = groundY
+                    onGround = true
+                    ySpeed = 0.0
+                } else {
+                    ySpeed -= .98
+                }
+            } else {
+                ySpeed = 0.0
+            }
+
+            entityTracker.setPlayerPosition(client, newX, newY, newZ, onGround)
         }
+
+
         Thread.sleep(500)
     }
 }
